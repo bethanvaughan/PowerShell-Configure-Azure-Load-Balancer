@@ -1,37 +1,36 @@
-# Prompt user for input
+# Interactive Input Function
 function Prompt-Input {
     param (
-        [string]$Message,
-        [string]$DefaultValue = ""
+        [string]$Message
     )
-    $inputValue = Read-Host "$Message (Default: $DefaultValue)"
+    $inputValue = Read-Host "$Message"
     if (-not $inputValue) {
-        return $DefaultValue
+        Write-Host "Input is required for $Message. Please try again." -ForegroundColor Red
+        return Prompt-Input -Message $Message
     }
     return $inputValue
 }
 
-# Variables
-$resourceGroup = Prompt-Input "Enter the Resource Group name" "myResourceGroup"
-$location = Prompt-Input "Enter the location (e.g., uksouth)" "uksouth"
-$lbName = Prompt-Input "Enter the Load Balancer name" "myLoadBalancer"
-$vnetName = Prompt-Input "Enter the Virtual Network name" "myVnet"
-$subnetName = Prompt-Input "Enter the Subnet name for Load Balancer" "mySubnet"
+# Collecting meaningful input from the user
+$resourceGroup = Prompt-Input "Enter the Resource Group name"
+$location = Prompt-Input "Enter the Azure region (e.g., eastus)"
+$lbName = Prompt-Input "Enter the Load Balancer name"
+$vnetName = Prompt-Input "Enter the Virtual Network name"
+$subnetName = Prompt-Input "Enter the Subnet name for the Load Balancer"
 
-Write-Host "You have entered the following configuration:" -ForegroundColor Yellow
+Write-Host "Creating Azure Load Balancer with the following configuration:" -ForegroundColor Yellow
 Write-Host "Resource Group: $resourceGroup" -ForegroundColor Green
 Write-Host "Location: $location" -ForegroundColor Green
-Write-Host "Load Balancer: $lbName" -ForegroundColor Green
-Write-Host "Virtual Network: $vnetName" -ForegroundColor Green
-Write-Host "Subnet: $subnetName" -ForegroundColor Green
+Write-Host "Load Balancer Name: $lbName" -ForegroundColor Green
+Write-Host "Virtual Network Name: $vnetName" -ForegroundColor Green
+Write-Host "Subnet Name: $subnetName" -ForegroundColor Green
 
-# Confirm details
-if (-not (Read-Host "Is this correct? (yes/no)").ToLower().StartsWith("y")) {
-    Write-Host "Script aborted. Please re-run with the correct details." -ForegroundColor Red
+if (-not (Read-Host "Proceed with these settings? (yes/no)").ToLower().StartsWith("y")) {
+    Write-Host "Script aborted. Please re-run with correct details." -ForegroundColor Red
     return
 }
 
-# Check if resource group exists
+# Create Resource Group if needed
 if (-not (Get-AzResourceGroup -Name $resourceGroup -ErrorAction SilentlyContinue)) {
     Write-Host "Creating Resource Group: $resourceGroup" -ForegroundColor Yellow
     New-AzResourceGroup -Name $resourceGroup -Location $location
@@ -39,9 +38,9 @@ if (-not (Get-AzResourceGroup -Name $resourceGroup -ErrorAction SilentlyContinue
     Write-Host "Resource Group $resourceGroup already exists." -ForegroundColor Cyan
 }
 
-# Check if Virtual Network exists
+# Create Virtual Network and Subnet if needed
 if (-not (Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup -ErrorAction SilentlyContinue)) {
-    Write-Host "Creating Virtual Network: $vnetName" -ForegroundColor Yellow
+    Write-Host "Creating Virtual Network and Subnet" -ForegroundColor Yellow
     New-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup -Location $location -AddressPrefix "10.0.0.0/16" |
         Add-AzVirtualNetworkSubnetConfig -Name $subnetName -AddressPrefix "10.0.0.0/24" |
         Set-AzVirtualNetwork
@@ -49,7 +48,7 @@ if (-not (Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup
     Write-Host "Virtual Network $vnetName already exists." -ForegroundColor Cyan
 }
 
-# Create Public IP for Load Balancer
+# Create Public IP Address
 $publicIpName = "$lbName-pip"
 if (-not (Get-AzPublicIpAddress -Name $publicIpName -ResourceGroupName $resourceGroup -ErrorAction SilentlyContinue)) {
     Write-Host "Creating Public IP: $publicIpName" -ForegroundColor Yellow
