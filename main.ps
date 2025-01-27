@@ -1,1 +1,87 @@
+# Enable colors for output
+function Write-Color {
+    param (
+        [string]$Message,
+        [string]$Color = "White"
+    )
+    Write-Host $Message -ForegroundColor $Color
+}
+
+# Prompt user for input
+function Prompt-Input {
+    param (
+        [string]$Message,
+        [string]$DefaultValue = ""
+    )
+    $inputValue = Read-Host "$Message (Default: $DefaultValue)"
+    if (-not $inputValue) {
+        return $DefaultValue
+    }
+    return $inputValue
+}
+
+# Variables
+$resourceGroup = Prompt-Input "Enter the Resource Group name" "myResourceGroup"
+$location = Prompt-Input "Enter the location (e.g., eastus)" "eastus"
+$lbName = Prompt-Input "Enter the Load Balancer name" "myLoadBalancer"
+$vnetName = Prompt-Input "Enter the Virtual Network name" "myVnet"
+$subnetName = Prompt-Input "Enter the Subnet name for Load Balancer" "mySubnet"
+
+Write-Color "You have entered the following configuration:" "Yellow"
+Write-Color "Resource Group: $resourceGroup" "Green"
+Write-Color "Location: $location" "Green"
+Write-Color "Load Balancer: $lbName" "Green"
+Write-Color "Virtual Network: $vnetName" "Green"
+Write-Color "Subnet: $subnetName" "Green"
+
+# Confirm details
+if (-not (Read-Host "Is this correct? (yes/no)").ToLower().StartsWith("y")) {
+    Write-Color "Script aborted. Please re-run with the correct details." "Red"
+    return
+}
+
+# Check if resource group exists
+if (-not (Get-AzResourceGroup -Name $resourceGroup -ErrorAction SilentlyContinue)) {
+    Write-Color "Creating Resource Group: $resourceGroup" "Yellow"
+    New-AzResourceGroup -Name $resourceGroup -Location $location
+} else {
+    Write-Color "Resource Group $resourceGroup already exists." "Cyan"
+}
+
+# Check if Virtual Network exists
+if (-not (Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup -ErrorAction SilentlyContinue)) {
+    Write-Color "Creating Virtual Network: $vnetName" "Yellow"
+    New-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup -Location $location -AddressPrefix "10.0.0.0/16" |
+        Add-AzVirtualNetworkSubnetConfig -Name $subnetName -AddressPrefix "10.0.0.0/24" |
+        Set-AzVirtualNetwork
+} else {
+    Write-Color "Virtual Network $vnetName already exists." "Cyan"
+}
+
+# Create Public IP for Load Balancer
+$publicIpName = "$lbName-pip"
+if (-not (Get-AzPublicIpAddress -Name $publicIpName -ResourceGroupName $resourceGroup -ErrorAction SilentlyContinue)) {
+    Write-Color "Creating Public IP: $publicIpName" "Yellow"
+    $publicIp = New-AzPublicIpAddress -Name $publicIpName -ResourceGroupName $resourceGroup -Location $location -AllocationMethod Static -Sku Standard
+} else {
+    Write-Color "Public IP $publicIpName already exists." "Cyan"
+    $publicIp = Get-AzPublicIpAddress -Name $publicIpName -ResourceGroupName $resourceGroup
+}
+
+# Create Load Balancer
+if (-not (Get-AzLoadBalancer -Name $lbName -ResourceGroupName $resourceGroup -ErrorAction SilentlyContinue)) {
+    Write-Color "Creating Load Balancer: $lbName" "Yellow"
+    $frontendIp = New-AzLoadBalancerFrontendIpConfig -Name "$lbName-frontend" -PublicIpAddressId $publicIp.Id
+    $backendPool = New-AzLoadBalancerBackendAddressPoolConfig -Name "$lbName-backend"
+    $probe = New-AzLoadBalancerProbeConfig -Name "HealthProbe" -Protocol Tcp -Port 80 -IntervalInSeconds 15 -ProbeCount 2
+    $inboundNatRule = New-AzLoadBalancerInboundNatRuleConfig -Name "NatRule" -FrontendIpConfigurationId $frontendIp.Id -Protocol Tcp -FrontendPort 22 -BackendPort 22
+    $loadBalancingRule = New-AzLoadBalancerRuleConfig -Name "LoadBalancingRule" -FrontendIpConfigurationId $frontendIp.Id -BackendAddressPoolId $backendPool.Id -Protocol Tcp -FrontendPort 80 -BackendPort 80 -ProbeId $probe.Id
+    
+    New-AzLoadBalancer -ResourceGroupName $resourceGroup -Name $lbName -Location $location -Sku Standard -FrontendIpConfiguration $frontendIp -BackendAddressPool $backendPool -Probe $probe -InboundNatRule $inboundNatRule -LoadBalancingRule $loadBalancingRule
+} else {
+    Write-Color "Load Balancer $lbName already exists." "Cyan"
+}
+
+Write-Color "Azure Load Balancer setup completed successfully!" "Green"
+
 
