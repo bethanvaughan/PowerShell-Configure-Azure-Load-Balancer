@@ -11,14 +11,11 @@ function Prompt-Input {
     return $inputValue
 }
 
-#Note on funky Prompt-Input function:
-The Prompt-Input function performs the following steps:
-
-Display a Prompt: It takes a message ($Message) as input and displays it to the user using Read-Host, asking for input. E.g Prompt-Input "Enter the Resource Group name" - here the "Enter the Resource Group name" is being passed as the $Message paramete
-Check for Input: If the user doesn't provide any input it:
-Displays an error message in red saying Input is required duh...
-Recursively calls itself to ask for the input again!
-Return Input: If the user provides a valid input, the function returns the entered value.
+#NOTE on funky Prompt-Input function:
+#Display a Prompt: It takes a message ($Message) as input and displays it to the user using Read-Host, asking for input. E.g Prompt-Input "Enter the Resource Group name" - here the "Enter the Resource Group name" is being passed as the $Message paramete
+#Check for Input: If the user doesn't provide any input it: Displays an error message in red saying Input is required duh...
+# Recursively calls itself to ask for the input again!
+# Return Input: If the user provides a valid input, the function returns the entered value.
 
 # Collecting meaningful input from the user
 $resourceGroup = Prompt-Input "Enter the Resource Group name"
